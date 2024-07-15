@@ -3,7 +3,7 @@
 <h3 style="margin-top:0px">Purpose</h3>
 
 <p style="padding-left:25px">
-A discord bot designed for tracking suspected cheating steam accounts. This bot continuously monitors the specified steam accounts for any changes to usernames and imposition of game, vac and community bans. Upon detecting a ban, the discord bot ouputs background information including the name they had when you added them, and all aliases they had leading up to their ban. This functionally is essential because when reporting a player in rust the game only provides their current username, which can change frequently, making it difficult to track and identify cheaters accurately.
+A discord bot designed for tracking suspected cheating steam accounts. This bot continuously monitors the specified steam accounts for any changes to usernames and imposition of game, vac or community bans. Upon detecting a ban, the discord bot ouputs background information including the name they had when you added them, and all aliases they had leading up to their ban. This functionally is essential because when reporting a player in rust the game only provides their current username, which can change frequently, making it difficult to track and identify cheaters accurately.
 </p>
 
 <h3>Bot Commands</h3>
