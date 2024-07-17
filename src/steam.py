@@ -1,67 +1,95 @@
-import aiohttp, asyncio
+import aiohttp, asyncio, time
+import custom_exceptions as ce
+from termcolor import colored
 
-async def process_ids(steam_ids, steam_api_key):
+async def process_ids(all_steam_ids, steam_api_key):
 
-    #TODO add implementation to support over 100 steam ids
-    if len(steam_ids) > 100:
-        return
+    # Start time for measuring execution time
+    start_time = time.time()
 
-    # Create ban tasks
-    new_ban_task = get_ban_data(steam_ids, steam_api_key)
-    new_user_task = get_player_summaries(steam_ids, steam_api_key)
+    # divides the steam ids into chunks to avoid the steam web api limit
+    chunk_size = 100
+    steam_ids_packs = [all_steam_ids[i:i + chunk_size] for i in range(0,len(all_steam_ids), chunk_size)]
 
-    # Rust tasks async
-    new_ban_data, new_user_data = await asyncio.gather(new_ban_task, new_user_task)
+    # A list of coro's to be executed at the same time
+    api_tasks = []
 
-    # Create dict keys
-    new_info = {steam_id: {} for steam_id in steam_ids}
+    # Create dict keys of all steam ids
+    new_info = {steam_id: {} for steam_id in all_steam_ids}
 
-    ban_data = new_ban_data['players']
-    for user in ban_data:
-        new_info_user = new_info[user['SteamId']]
+    # Creates multiple coro calls to the steam api
+    for steam_ids in steam_ids_packs:
+        # Create ban tasks
+        ban_info_coro = get_ban_data(steam_ids, steam_api_key)
+        user_info_coro = get_player_summaries(steam_ids, steam_api_key)
 
-        new_info_user['CommunityBanned'] = user['CommunityBanned']
-        new_info_user['VACBanned'] = user['VACBanned']
-        new_info_user['NumberOfVACBans'] = user['NumberOfVACBans']
-        new_info_user['NumberOfGameBans'] = user['NumberOfGameBans']
+        api_tasks.extend([ban_info_coro, user_info_coro])
 
-    user_data = new_user_data['response']['players']
-    for user in user_data:
-        new_info_user = new_info[user['steamid']]
+    # Get results using coro's
+    results = await asyncio.gather(*api_tasks)
+    
+    # Filter the coro results
+    ban_data_raw = [results[i] for i in range(len(results)) if i % 2 == 0]
+    user_data_raw = [results[i] for i in range(len(results)) if i % 2 != 0]
 
-        new_info_user['name'] = user['personaname']
+    # sections are the divided api requests (for ban info), user is the data within each request
+    for section in ban_data_raw:
+        for user in section['players']:
+            new_user = (new_info[(user['SteamId'])])
+            new_user['CommunityBanned'] = user['CommunityBanned']
+            new_user['VACBanned'] = user['VACBanned']
+            new_user['NumberOfVACBans'] = user['NumberOfVACBans']
+            new_user['NumberOfGameBans'] = user['NumberOfGameBans']
 
+    # sections are for the steam user data
+    for section in user_data_raw:
+        for user in section['response']['players']:
+            new_user = (new_info[(user['steamid'])])
+            new_user['name'] = user['personaname']
+
+    end_time = time.time()
+    print(colored(f"Execution time: {round((end_time-start_time)*1000)}ms", "blue"))
     return new_info
 
 async def get_player_summaries(steam_ids, steam_api_key):
+    start_time = time.time()
+    # Request url
     url = f"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={steam_api_key}&steamids={steam_ids}"
 
     # Check if the steam_ids list is longer than the limit
     if len(steam_ids) > 100:
-        return
+        return ce.InvalidRequestListError
 
+    # Make request using aiohttp
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             if response.status == 200:
                 data = await response.json()
+                end_time = time.time()
+                print(colored(f"API call time: {round((end_time-start_time)*1000)}ms", "blue"))
                 return data
             else:
                 print("Error")
 
 async def get_ban_data(steam_ids, steam_api_key):
+    start_time = time.time()
+    # Request URL
     url = f"http://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key={steam_api_key}&steamids={steam_ids}"
 
     # Check if the steam_ids list is longer than the limit
     if len(steam_ids) > 100:
-        return
+        return ce.InvalidRequestListError
     
+    # Make request using aiohttp
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             if response.status == 200:
                 data = await response.json()
+                end_time = time.time()
+                print(colored(f"API call time: {round((end_time-start_time)*1000)}ms", "blue"))
                 return data
             else:
-                print("Error")
+                print(colored(f"Error -> {response.status}", "red"))
 
 async def get_steam_profile_picture(steam_id, steam_api_key):
     url = f"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={steam_api_key}&steamids={steam_id}"
