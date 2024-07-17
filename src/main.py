@@ -164,14 +164,14 @@ async def loop(ctx: commands.Context, state: str):
             return
         else:
             await ctx.send("Starting tracking loop")
-            print(colored("   - Starting Tracking Loop", "blue"))
+            print(colored("Starting Tracking Loop", "blue"))
             ban_loop_active = True
             check_for_bans.start()
             return
     elif state == "stop":
         if check_for_bans.is_running():
             await ctx.send("Stopping tracking loop")
-            print(colored("   - Stopping Tracking Loop (after next iteration)", "blue"))
+            print(colored("Stopping Tracking Loop (after next iteration)", "blue"))
             check_for_bans.stop()
             ban_loop_active = False
         else:
@@ -181,7 +181,7 @@ async def loop(ctx: commands.Context, state: str):
         return
     return 
 
-@tasks.loop(hours=1)
+@tasks.loop(minutes=10)
 async def check_for_bans():
 
     global steam_ids_cache
@@ -196,7 +196,7 @@ async def check_for_bans():
         steam_ids_cache = {}
         save_ids()
 
-    id_list = steam_ids.keys()
+    id_list = list(steam_ids.keys())
     
     # Get new info
     new_info = await steam.process_ids(id_list, steam_api_key=steam_api_key)
