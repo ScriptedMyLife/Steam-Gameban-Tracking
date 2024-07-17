@@ -24,7 +24,3 @@ A discord bot designed for tracking suspected cheating steam accounts. This bot 
     <li><b><a href=https://discordpy.readthedocs.io/en/stable/discord.html>Discord API Help<a></b> </li>
     <li><b><a href=https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID>Discord Channel ID's<a></b> </li>
 </ul>
-<footer>
-<p>Last edit by: Will</p>
-<p>Edited on July 17, 2024</p>
-</footer>
