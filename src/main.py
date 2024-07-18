@@ -163,7 +163,7 @@ async def add_user(ctx: commands.Context, steam_id: str, note: str):
                 print(colored(f"SteamID: {steam_id} was added to the database", "green"))
                 save_ids()
             log_channel = bot.get_channel(logger_channel_id)
-            await log_channel.send(embed=ce.add_user_embed_log(steam_id, user_data['avatarfull'], ctx.message.author.global_name))
+            await log_channel.send(embed=ce.add_user_embed_log(steam_id, user_data['personaname'],user_data['avatarfull'], ctx.message.author.global_name))
         except KeyError as e:
             print(colored("KeyError: {e}", "red"))
             return
