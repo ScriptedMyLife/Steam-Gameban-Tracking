@@ -1,0 +1,1 @@
+steam ids will be stored in this folder
