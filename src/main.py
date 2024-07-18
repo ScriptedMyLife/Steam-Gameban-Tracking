@@ -96,7 +96,7 @@ async def add_log_message(channel_id, embed):
     return
 
 @bot.hybrid_command(name="add_user", with_app_command=True, description="Add's a SteamID to the tracking loop")
-async def add_user(ctx: commands.Context, steam_id: str):
+async def add_user(ctx: commands.Context, steam_id: str, note: str):
     print(colored(f"{ctx.message.author.name} called add_user command with steamid: {steam_id}", "blue"))
     async with ctx.typing(): # For demanding tasks let the user know something is happening
         # Check if the steam ID is 17 characters
@@ -139,6 +139,7 @@ async def add_user(ctx: commands.Context, steam_id: str):
                 steam_ids_cache[steam_id] = {
                     "name": user_data['personaname'],
                     "avatar": user_data['avatarfull'],
+                    "note": note,
                     "aliases": [user_data['personaname']],
                     "CommunityBanned": ban_data['CommunityBanned'],
                     "VACBanned": ban_data['VACBanned'],
@@ -151,6 +152,7 @@ async def add_user(ctx: commands.Context, steam_id: str):
                 steam_ids[steam_id] = {
                     "name": user_data['personaname'],
                     "avatar": user_data['avatarfull'],
+                    "note": note,
                     "aliases": [user_data['personaname']],
                     "CommunityBanned": ban_data['CommunityBanned'],
                     "VACBanned": ban_data['VACBanned'],
