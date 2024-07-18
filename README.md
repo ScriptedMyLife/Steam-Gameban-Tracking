@@ -8,15 +8,33 @@ A discord bot designed for tracking suspected cheating steam accounts. This bot 
 
 <h3>Bot Commands</h3>
 <ul>
-    <li>/add_user [steam id]</li>
-    <li>/loop [state]</li>
+    <li>/add_user [steam id] [note]
+        <ul>
+            <li>Adds a user to the data base</li>
+            <li>steam id: users steam id</li>
+            <li>note: extra information about the user (server you were playing on, their discord, etc.)</li>
+        </ul>
+    </li>
+    <li>/loop [state]
+        <ul>
+            <li>Starts the tracking loop (checks steam api every 10 minutes for changes)</li>
+            <li>state: takes one of the two options <b>start</b> and <b>stop</b> as a param<li>
+        </ul>
+    </li>
+    <li>/count
+        <ul>
+            <li>Displays how many steam ids are in the database</li>
+        </ul>
+    </li>
 </ul>
 <h3>Enviorment Variables</h3>
 <ul>
     <li><b>STEAM_API_KEY</b> - Your steam web api key</li>
     <li><b>DISCORD_API_KEY</b> - Your discord bot api key</li>
-    <li><b>LOG_CHANNEL</b> - Discord ID channel for logging actions</li>
-    <li><b>BAN_CHANNEL</b> - Discord ID channel for sending ban notifications</li>
+    <li><b>LOG_CHANNEL</b> - Discord channel ID for logging actions</li>
+    <li><b>BAN_CHANNEL</b> - Discord channel ID for sending ban notifications</li>
+    <li><b>NAME_CHANGE_CHANNEL<b> - Discord Channel ID for logging name changes</li>
+    <li><b>OTHER_BANS_CHANNEL<b> - Discord Channel ID for logging vac and community bans</li>
 </ul>
 <h3> Resources </h3>
 <ul>
