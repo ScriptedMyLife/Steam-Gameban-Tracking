@@ -18,7 +18,7 @@ A discord bot designed for tracking suspected cheating steam accounts. This bot 
     <li>/loop [state]
         <ul>
             <li>Starts the tracking loop (checks steam api every 10 minutes for changes)</li>
-            <li>state: takes one of the two options <b>start</b> and <b>stop</b> as a param<li>
+            <li>state: takes one of the two options <b>start</b> and <b>stop</b> as a param</li>
         </ul>
     </li>
     <li>/count
