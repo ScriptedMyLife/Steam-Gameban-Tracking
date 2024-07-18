@@ -92,8 +92,10 @@ async def get_ban_data(steam_ids, steam_api_key):
                 print(colored(f"Error -> {response.status}", "red"))
 
 async def get_steam_profile_picture(steam_id, steam_api_key):
+    # Request URL
     url = f"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={steam_api_key}&steamids={steam_id}"
     
+    # Make request using aiohttp
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             if response.status == 200:
