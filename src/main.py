@@ -2,6 +2,7 @@ import discord, json, os, steam, asyncio, time
 from dotenv import load_dotenv, dotenv_values
 from termcolor import colored
 from discord.ext import commands, tasks
+import custom_embeds as ce
 
 # Enviorment Variables
 load_dotenv()
@@ -9,6 +10,8 @@ discord_token = os.getenv("DISCORD_API_KEY")
 steam_api_key = os.getenv("STEAM_API_KEY")
 logger_channel_id = int(os.getenv("LOG_CHANNEL"))
 gameban_channel_id = int(os.getenv("BAN_CHANNEL"))
+name_change_channel_id = int(os.getenv("NAME_CHANGE_CHANNEL"))
+other_bans_channel_id = int(os.getenv("OTHER_BANS_CHANNEL"))
 
 class BanTracker(commands.Bot):
     async def on_ready(self):
@@ -68,12 +71,24 @@ def compare_users(old_user, new_user):
         results.append("name_change")
     if old_user['CommunityBanned'] != new_user['CommunityBanned']:
         results.append("community_ban")
+        if old_user['CommunityBanned'] == False:
+            results.append("community_ban_issued")
+        else:
+            results.append("community_ban_revoked")
     if old_user['VACBanned'] != new_user['VACBanned']:
         results.append("vac_ban")
-    if old_user['NumberOfVACBans'] < new_user['NumberOfVACBans']:
+        if old_user['VACBanned'] == False:
+            results.append("vac_ban_issued")
+        else:
+            results.append("vac_ban_revoked")
+    if old_user['NumberOfVACBans'] != new_user['NumberOfVACBans']:
         results.append("vac_ban_num")
-    if old_user['NumberOfGameBans'] < new_user['NumberOfGameBans']:
+    if old_user['NumberOfGameBans'] != new_user['NumberOfGameBans']:
         results.append("game_ban")
+        if old_user['NumberOfGameBans'] < new_user['NumberOfGameBans']:
+            results.append("game_ban_issued")
+        else:
+            results.append("game_ban_revoked")
     return results
 
 #TODO implement more effiecent discord embed logging
@@ -123,6 +138,7 @@ async def add_user(ctx: commands.Context, steam_id: str):
             if ban_loop_active == True:
                 steam_ids_cache[steam_id] = {
                     "name": user_data['personaname'],
+                    "avatar": user_data['avatarfull'],
                     "aliases": [user_data['personaname']],
                     "CommunityBanned": ban_data['CommunityBanned'],
                     "VACBanned": ban_data['VACBanned'],
@@ -134,6 +150,7 @@ async def add_user(ctx: commands.Context, steam_id: str):
             elif ban_loop_active == False:
                 steam_ids[steam_id] = {
                     "name": user_data['personaname'],
+                    "avatar": user_data['avatarfull'],
                     "aliases": [user_data['personaname']],
                     "CommunityBanned": ban_data['CommunityBanned'],
                     "VACBanned": ban_data['VACBanned'],
@@ -143,6 +160,8 @@ async def add_user(ctx: commands.Context, steam_id: str):
                 await ctx.send(f"SteamID: __{steam_id}__ was added to the database.")
                 print(colored(f"SteamID: {steam_id} was added to the database", "green"))
                 save_ids()
+            log_channel = bot.get_channel(logger_channel_id)
+            await log_channel.send(embed=ce.add_user_embed_log(steam_id, user_data['avatarfull'], ctx.message.author.global_name))
         except KeyError as e:
             print(colored("KeyError: {e}", "red"))
             return
@@ -153,49 +172,62 @@ async def add_user(ctx: commands.Context, steam_id: str):
 
 @bot.hybrid_command(name="loop", with_app_command=True, description='Takes "start" and "stop" as params')
 async def loop(ctx: commands.Context, state: str):
-    state = state.lower()
-    print(colored(f"{ctx.message.author.name} called loop with state: {state}","blue"))
-    global ban_loop_active
+    async with ctx.typing():
+        state = state.lower()
+        print(colored(f"{ctx.message.author.name} called loop with state: {state}","blue"))
+        global ban_loop_active
 
-    # Handle states, and turn loop on and off
-    if state == "start":
-        if check_for_bans.is_running():
-            await ctx.send("Ban Checking loop is alreay running")
-            return
+        # Handle states, and turn loop on and off
+        if state == "start":
+            if check_for_bans.is_running():
+                await ctx.send("Ban Checking loop is alreay running")
+                return
+            else:
+                await ctx.send("Starting tracking loop")
+                print(colored("Starting Tracking Loop", "blue"))
+                ban_loop_active = True
+                check_for_bans.start()
+                return
+        elif state == "stop":
+            if check_for_bans.is_running():
+                await ctx.send("Stopping tracking loop")
+                print(colored("Stopping Tracking Loop (after next iteration)", "blue"))
+                check_for_bans.stop()
+                ban_loop_active = False
+            else:
+                await ctx.send("Tracking Loop is not running")
         else:
-            await ctx.send("Starting tracking loop")
-            print(colored("Starting Tracking Loop", "blue"))
-            ban_loop_active = True
-            check_for_bans.start()
-            return
-    elif state == "stop":
-        if check_for_bans.is_running():
-            await ctx.send("Stopping tracking loop")
-            print(colored("Stopping Tracking Loop (after next iteration)", "blue"))
-            check_for_bans.stop()
-            ban_loop_active = False
-        else:
-            await ctx.send("Tracking Loop is not running")
-    else:
-        await ctx.send("Invalid state error, state must be: __start__ or __stop__")    
+            await ctx.send("Invalid state error, state must be: __start__ or __stop__")    
+        log_channel = bot.get_channel(logger_channel_id)
+        log_channel.send(embed=ce.loop_command_log(state, ctx.message.author.name))
         return
-    return 
+
+@bot.hybrid_command(name="count", with_app_command=True, description='Lists all the users in the database')
+async def count(ctx: commands.Context):
+    async with ctx.typing():
+        ids = steam_ids.keys()
+        embed = discord.Embed()
+        embed.title = f"{len(ids)} accounts in the database"
+        await ctx.send(embed=embed)
+
+@bot.hybrid_command(name="test_api", with_app_command=True, description="Tests api calls")
+async def test_api(ctx: commands.Context):
+    result = await steam.get_ban_data(["76561199626760903"], steam_api_key)
+    await ctx.send(result)
 
 @tasks.loop(minutes=10)
 async def check_for_bans():
-
     global steam_ids_cache
     global steam_ids
     global ban_loop_active
-
     ban_loop_active = True
 
+    # If a user is added during the loop (very very rare)
     if steam_ids_cache:
         for steam_id in steam_ids_cache.keys():
             steam_ids[steam_id] = steam_ids_cache[steam_id]
         steam_ids_cache = {}
         save_ids()
-
     id_list = list(steam_ids.keys())
     
     # Get new info
@@ -206,53 +238,61 @@ async def check_for_bans():
         old_user = steam_ids[steamid]
         new_user = new_info[steamid]
 
+        previous_name = old_user['name']
+        cur_name = new_user['name']
+        avatar_url = old_user['avatar']
+        orig_name = old_user['aliases'][0]
+
         # Check for changes (if gamebans increased, name changed, etc)
         changes = compare_users(old_user, new_user)
 
+        # Logic for a name change event
         if "name_change" in changes:
-
-            previous_name = old_user['name']
-            new_name = new_user['name']
-
             old_user['aliases'].append(old_user['name'])
             old_user['name'] = new_user['name']
-
-            log_channel = bot.get_channel(logger_channel_id)
-            if log_channel:
-                embed = discord.Embed()
-                embed.color = discord.Colour.blue()
-                embed.title = "**Name Change Detected**"
-                embed.description = "User changed their name"
-                embed.add_field(name="Previous Username", value=previous_name, inline=True)
-                embed.add_field(name="Current Username", value=new_name, inline=True)
-                embed.add_field(name="Sent at:", value=f"<t:{round(time.time())}:F>", inline=False)
-                await log_channel.send(embed=embed)
+            name_change_channel = bot.get_channel(name_change_channel_id)
+            if name_change_channel:
+                embed = ce.name_change_embed(previous_name, cur_name, avatar_url)
+                await name_change_channel.send(embed=embed)
             else:
                 print(colored("Could not send message to log channel", "red"))
                 print(colored("User changed their name", "blue"))
             
+        # Logic for a game ban event
         if "game_ban" in changes:
-            old_user['NumberOfGameBans'] = new_user['NumberOfGameBans']
-
             gameban_channel = bot.get_channel(gameban_channel_id)
             if gameban_channel:
-                profile_url = await steam.get_steam_profile_picture(steamid, steam_api_key=steam_api_key)
-                embed = discord.Embed()
-                embed.color = discord.Colour.red()
-                embed.title = f"**{old_user['aliases'][0]} was gamebanned!**"
-                embed.description = "user recivied a gameban"
-                embed.add_field(name="Username when reported", value=old_user['aliases'][0], inline=True)
-                embed.add_field(name="Current username", value=new_user['name'], inline=True)
-                embed.add_field(name="Number of gamebans", value=new_user['NumberOfGameBans'], inline=True)
-                embed.add_field(name="Sent at:", value=f"<t:{round(time.time())}:F>", inline=False)
-
-                if profile_url:
-                    embed.set_thumbnail(url=profile_url)
-
+                state = "game_ban_issued" if "game_ban_issued" in changes else "game_ban_revoked"
+                embed = ce.game_ban_embed(orig_name, cur_name, old_user['NumberOfGameBans'], new_user['NumberOfGameBans'], avatar_url, state)
+                old_user['NumberOfGameBans'] = new_user['NumberOfGameBans']
                 await gameban_channel.send(embed=embed)
             else:
                 print(colored("Could not send message to gameban channel", "red"))
-                print(colored("User was game banned", "blue"))
+                print(colored(f"Gameban detected, state={state}", "blue"))
+
+        # Logic for a vac ban event
+        if "vac_ban" in changes:
+            other_bans_channel = bot.get_channel(other_bans_channel_id)
+            if other_bans_channel:
+                state = "vac_ban_issued" if "vac_ban_issued" in changes else "vac_ban_revoked"
+                prev_vac_bans = old_user['NumberOfVACBans']
+                cur_vac_bans = new_user['NumberOfVACBans']
+                embed = ce.vac_ban_embed(orig_name, cur_name, prev_vac_bans, cur_vac_bans, avatar_url, state)
+                await other_bans_channel.send(embed=embed)
+            else:
+                print(colored("Could not send message to vac_ban channel", "red"))
+                print(colored(f"VAC ban detected, state={state}", "blue"))
+
+        # Logic for a community ban event
+        if "community_ban" in changes:
+            other_bans_channel = bot.get_channel(other_bans_channel_id)
+            if other_bans_channel:
+                state = "community_ban_issued" if "community_ban_issued" in changes else "community_ban_revoked"
+                embed = ce.community_ban_embed(orig_name, cur_name, avatar_url, state)
+                await other_bans_channel.send(embed=embed)
+            else:
+                print(colored("Could not send message to community_ban channel", "red"))
+                print(colored(f"Community ban detected, state={state}", "blue"))  
     save_ids()
     ban_loop_active = False
     return
